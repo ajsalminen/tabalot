@@ -68,6 +68,37 @@ function checkTabCount() {
         chrome.browserAction.setIcon({path: 'icon-38.png'});
       }, 400);
 
+      removeOldestTabAction(unPinnedTabs, pinnedTabs, unPinnedTabsCount, id);
+
+    } else {
+      updateBadge(unPinnedTabsCount);
+    }
+
+    // update tab count on badge
+    if(unPinnedTabsCount > warnTabs){
+      var panic = 100 * ((unPinnedTabsCount - warnTabs) / buffer);
+      panic = parseInt((255 / 100) * panic, 10);
+      if(panic >= 255) {
+        panic = 255;
+      }
+      chrome.browserAction.setBadgeBackgroundColor({ color: [panic, 0, 0, 255] });
+      if(unPinnedTabsCount === maxTabs){
+        setTimeout(function(){
+          updateBadge(unPinnedTabsCount, 4);
+        }, 300);
+      }
+    } else {
+      chrome.browserAction.setBadgeBackgroundColor({ color: [0, 0, 0, 150] });
+      chrome.browserAction.setIcon({path: 'icon.png'});
+    }
+    checking = false;
+  });
+}
+
+function removeOldestTabAction(unPinnedTabs, pinnedTabs, pinnedTabsCount, id) {
+
+    var i, j, il;
+
       // try to remove a tab
       loopTabs:
       for (i = 0, il = unPinnedTabs.length; i < il; i++) {
@@ -98,29 +129,6 @@ function checkTabCount() {
         break;
 
       }
-    } else {
-      updateBadge(unPinnedTabsCount);
-    }
-
-    // update tab count on badge
-    if(unPinnedTabsCount > warnTabs){
-      var panic = 100 * ((unPinnedTabsCount - warnTabs) / buffer);
-      panic = parseInt((255 / 100) * panic, 10);
-      if(panic >= 255) {
-        panic = 255;
-      }
-      chrome.browserAction.setBadgeBackgroundColor({ color: [panic, 0, 0, 255] });
-      if(unPinnedTabsCount === maxTabs){
-        setTimeout(function(){
-          updateBadge(unPinnedTabsCount, 4);
-        }, 300);
-      }
-    } else {
-      chrome.browserAction.setBadgeBackgroundColor({ color: [0, 0, 0, 150] });
-      chrome.browserAction.setIcon({path: 'icon.png'});
-    }
-    checking = false;
-  });
 }
 
 chrome.tabs.onUpdated.addListener(function() {
