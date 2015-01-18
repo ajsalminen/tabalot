@@ -32,7 +32,16 @@ function updateBadge(val, flash){
   }
 }
 
-function checkTabCount() {
+function checkTabCount(unPinnedTabs, pinnedTabs, tab) {
+refreshTabCount(unPinnedTabs, pinnedTabs);
+    if(unPinnedTabs.length > maxTabs) {
+        // removeOldestTabAction(unPinnedTabs, pinnedTabs);
+        alertTabsAction(unPinnedTabs, pinnedTabs, tab);
+    }
+}
+
+function prepareTabCount(callback) {
+
   // multiple events can fire, limit the activity
   if(checking){
     return;
@@ -41,7 +50,8 @@ function checkTabCount() {
   setTabLimits();
 
   chrome.tabs.query({windowId: chrome.windows.WINDOW_ID_CURRENT}, function(tabs){
-    if(!tabs.length){
+
+    if( tabs == undefined || !tabs.length){
       return;
     }
 
@@ -56,49 +66,46 @@ function checkTabCount() {
         unPinnedTabs.push(tabs[i]);
       }
     }
+      callback(unPinnedTabs, pinnedTabs);
+      checking = false;
 
-    var unPinnedTabsCount = unPinnedTabs.length;
-    var pinnedTabsCount = pinnedTabs.length;
+});
+}
+
+function refreshTabCount(unPinnedTabs, pinnedTabs) {
 
     // remove a tab
-    if(unPinnedTabsCount > maxTabs) {
+    if(unPinnedTabs.length > maxTabs) {
       // flash the icon red
       chrome.browserAction.setIcon({path: 'icon-alert-38.png'});
       setTimeout(function(){
         chrome.browserAction.setIcon({path: 'icon-38.png'});
       }, 400);
 
-      removeOldestTabAction(unPinnedTabs, pinnedTabs, unPinnedTabsCount, id);
-
-    } else {
-      updateBadge(unPinnedTabsCount);
-    }
-
-    // update tab count on badge
-    if(unPinnedTabsCount > warnTabs){
-      var panic = 100 * ((unPinnedTabsCount - warnTabs) / buffer);
+    } else if(unPinnedTabs.length > warnTabs){
+      var panic = 100 * ((unPinnedTabs.length - warnTabs) / buffer);
       panic = parseInt((255 / 100) * panic, 10);
       if(panic >= 255) {
         panic = 255;
       }
       chrome.browserAction.setBadgeBackgroundColor({ color: [panic, 0, 0, 255] });
-      if(unPinnedTabsCount === maxTabs){
+      if(unPinnedTabs.length === maxTabs){
         setTimeout(function(){
-          updateBadge(unPinnedTabsCount, 4);
+          updateBadge(unPinnedTabs.length, 4);
         }, 300);
       }
     } else {
       chrome.browserAction.setBadgeBackgroundColor({ color: [0, 0, 0, 150] });
       chrome.browserAction.setIcon({path: 'icon.png'});
     }
-    checking = false;
-  });
-}
 
-function removeOldestTabAction(unPinnedTabs, pinnedTabs, pinnedTabsCount, id) {
+    updateBadge(unPinnedTabs.length);
+
+  }
+
+function removeOldestTabAction(unPinnedTabs, pinnedTabs) {
 
     var i, j, il;
-
       // try to remove a tab
       loopTabs:
       for (i = 0, il = unPinnedTabs.length; i < il; i++) {
@@ -113,60 +120,81 @@ function removeOldestTabAction(unPinnedTabs, pinnedTabs, pinnedTabsCount, id) {
         if(unPinnedTabs[i].openerTabId === unPinnedTabs[i].id){
           continue;
         }
-        for (j = 0; j < pinnedTabsCount; j++) {
+        for (j = 0; j < pinnedTabs.length; j++) {
           if(unPinnedTabs[i].openerTabId === pinnedTabs[j].id) {
             continue loopTabs;
           }
         }
 
         // close the leftmost tab that isn't active or the instigator of the last opened tab
-        --unPinnedTabsCount;
+        --unPinnedTabs.length;
         /*jshint loopfunc: true */
         // console.log(unPinnedTabs[i]);
         chrome.tabs.remove(unPinnedTabs[i].id, function(){
-          updateBadge(unPinnedTabsCount);
+          updateBadge(unPinnedTabs.length);
         });
         break;
 
       }
 }
 
+function throttle(callback){
+var last = 0;
+var defer = 600000;
+return function () {
+var now = Date.now();
+if ( now > last + defer ) {
+    last = now;
+    callback();
+}
+
+
+}
+
+}
+
+var throttledAlert = throttle(function() {alert("Too many tabs!"); });
+
+function alertTabsAction(unPinnedTabs, pinnedTabs) {
+throttledAlert();
+}
+
 chrome.tabs.onUpdated.addListener(function() {
   // console.log('tab onUpdated');
-  checkTabCount();
+  prepareTabCount(checkTabCount);
 });
 
 chrome.tabs.onCreated.addListener(function() {
   // console.log('tab onCreated');
-  checkTabCount();
+  prepareTabCount(checkTabCount);
 });
 
 chrome.tabs.onRemoved.addListener(function() {
   // console.log('tab onRemoved');
-  checkTabCount();
+  prepareTabCount(checkTabCount);
 });
 
 chrome.tabs.onDetached.addListener(function() {
   // console.log('tab onDetached');
-  checkTabCount();
+  prepareTabCount(checkTabCount);
 });
 
 chrome.tabs.onAttached.addListener(function() {
   // console.log('tab onAttached');
-  checkTabCount();
+  prepareTabCount(checkTabCount);
 });
 
 chrome.windows.getLastFocused(function() {
   // console.log('window getLastFocussed');
-  checkTabCount();
+  prepareTabCount(refreshTabCount);
 });
 
 chrome.windows.onCreated.addListener(function() {
   // console.log('window onCreated');
-  checkTabCount();
+  prepareTabCount(refreshTabCount);
 });
 
 chrome.windows.onFocusChanged.addListener(function() {
   // console.log('window on focus changed');
-  checkTabCount();
+  prepareTabCount(refreshTabCount);
 });

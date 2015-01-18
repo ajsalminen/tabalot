@@ -1,4 +1,4 @@
-/*global chrome, checkTabCount */
+/*global chrome, prepareTabCount */
 
 'use strict';
 
@@ -12,7 +12,7 @@ window.onload = function(){
     chrome.browserAction.setTitle({title: 'Tabalot: ' + maxTabs + ' tab limit'});
     chrome.windows.getAll(function(windows){
       windows.forEach(function(win){
-        checkTabCount(win.id);
+        prepareTabCount(refreshTabCount);
       });
       window.close();
     });
